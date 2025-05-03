@@ -1,13 +1,16 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+import logger
 
 class ChatGUI:
     def __init__(self, root, message_handler):
+        logger.logger.debug("初始化GUI界面")
         self.root = root
         self.message_handler = message_handler
         self.setup_ui()
         # 延迟绑定事件，确保message_handler已设置
         self.setup_event_bindings()
+        logger.logger.info("GUI界面初始化完成")
     
     def setup_event_bindings(self):
         """单独设置事件绑定，确保message_handler已存在"""
@@ -18,6 +21,7 @@ class ChatGUI:
             self.set_temp_button.config(command=self.message_handler.set_temperature)
 
     def setup_ui(self):
+        """设置GUI界面"""
         self.root.title("DeepSeek Chat")
         self.root.geometry("1000x700")
         
@@ -39,6 +43,7 @@ class ChatGUI:
     
 
     def setup_chat_display(self, parent):
+        """设置聊天显示区域"""
         self.chat_frame = tk.Frame(parent)
         self.chat_frame.pack(fill=tk.BOTH, expand=True)
         
@@ -60,6 +65,7 @@ class ChatGUI:
                                    spacing3=10)
     
     def setup_input_area(self, parent):
+        """设置用户输入区域"""
         self.input_frame = tk.Frame(parent)
         self.input_frame.pack(fill=tk.X, pady=5)
         
@@ -71,6 +77,7 @@ class ChatGUI:
         self.send_button.pack(side=tk.RIGHT, padx=(5, 0))
     
     def setup_control_panel(self, parent):
+        """设置控制面板"""
         control_frame = tk.Frame(parent)
         control_frame.pack(fill=tk.X, pady=5)
         
@@ -78,6 +85,7 @@ class ChatGUI:
         self.setup_display_settings(control_frame)
     
     def setup_ai_parameters(self, parent):
+        """设置AI参数设置面板"""
         param_frame = tk.LabelFrame(parent, text="AI参数设置")
         param_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
         
@@ -98,6 +106,7 @@ class ChatGUI:
         self.set_temp_button.grid(row=0, column=5)
     
     def setup_display_settings(self, parent):
+        """设置显示与音频设置面板"""
         display_frame = tk.LabelFrame(parent, text="显示与音频设置")
         display_frame.pack(side=tk.RIGHT, fill=tk.X, padx=5)
         
@@ -108,11 +117,13 @@ class ChatGUI:
         tk.Checkbutton(display_frame, text="显示中日双语", variable=self.show_bilingual).grid(row=0, column=1, padx=5)
     
     def setup_status_bar(self):
+        """设置状态栏"""
         self.status_var = tk.StringVar(value="就绪")
         self.status_bar = tk.Label(self.root, textvariable=self.status_var, bd=1, relief=tk.SUNKEN, anchor=tk.W)
         self.status_bar.pack(fill=tk.X, padx=10, pady=(0, 5))
     
     def add_message(self, sender, message, is_user=False):
+        """添加一条消息到聊天显示区域"""
         self.chat_text.config(state=tk.NORMAL)
         tag_name = "user_message" if is_user else "ai_message"
         self.chat_text.insert(tk.END, f"{sender}: ", "sender_tag")
@@ -121,9 +132,11 @@ class ChatGUI:
         self.chat_text.see(tk.END)
     
     def set_status(self, message):
+        """设置状态栏消息"""
         self.status_var.set(message)
     
     def toggle_widgets_state(self, state):
+        """设置控件状态"""
         widgets = [
             self.user_input, 
             self.send_button, 
@@ -136,7 +149,9 @@ class ChatGUI:
             widget.config(state=state)
     
     def show_error(self, message):
+        """显示错误信息"""
         messagebox.showerror("错误", message)
     
     def show_info(self, message):
+        """显示提示信息"""
         messagebox.showinfo("信息", message)
