@@ -40,7 +40,7 @@ class AudioHandler:
                 temp_file = os.path.join(temp_dir, f"deepseek_audio_{os.getpid()}_{threading.get_ident()}.wav")
                 
                 logger.logger.debug(f"请求音频生成服务：{text}")
-                url = f"http://127.0.0.1:23456/voice/vits?id=4&length=1.2&text={requests.utils.quote(text)}"
+                url = f"http://127.0.0.1:23456/voice/vits?id=4&length=1.1&text={requests.utils.quote(text)}"
                 response = requests.get(url, timeout=10)
                 
                 if response.status_code == 200:

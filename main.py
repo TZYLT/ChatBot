@@ -21,8 +21,8 @@ def main():
             try:
                 chat_core.cleanup()
             finally:
-                root.destroy()
-                logger.logger.info("程序正常退出")
+                root.destroy() 
+                logger.logger.info("程序正常退出，资源成功释放")
         
         root.protocol("WM_DELETE_WINDOW", on_closing)
 

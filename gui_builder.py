@@ -126,7 +126,7 @@ class ChatGUI:
         """添加一条消息到聊天显示区域"""
         self.chat_text.config(state=tk.NORMAL)
         tag_name = "user_message" if is_user else "ai_message"
-        self.chat_text.insert(tk.END, f"{sender}: ", "sender_tag")
+        self.chat_text.insert(tk.END, f"{sender}: \n", "sender_tag")
         self.chat_text.insert(tk.END, f"{message}\n\n", tag_name)
         self.chat_text.config(state=tk.DISABLED)
         self.chat_text.see(tk.END)
