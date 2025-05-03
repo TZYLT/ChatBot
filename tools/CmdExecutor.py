@@ -109,7 +109,6 @@ def run_command_with_approval(command: str) -> str:
     返回执行结果或驳回信息。
     """
     logger.logger.info(f"Requesting approval for command: \"{command[0:10]}...\"")
-    
     # 1. 请求用户授权
     approval_result = request_command_approval(command)
     

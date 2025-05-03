@@ -94,7 +94,7 @@ class ChatCore:
             logger.logger.debug("自动消息处理完成")
     
     def display_ai_responses(self, responses):
-        """显示AI响应"""
+        """显示AI响应并按顺序播放音频"""
         for response in responses:
             try:
                 if isinstance(response, str):
@@ -112,11 +112,12 @@ class ChatCore:
                 self.gui.add_message("AI助手", display_text, is_user=False)
                 
                 if self.gui.generate_audio.get() and ja_text:
-                    threading.Thread(
-                        target=self.audio_handler.play_japanese_audio, 
-                        args=(ja_text,),
-                        daemon=True
-                    ).start()
+                    # 等待当前音频播放完成
+                    while self.audio_handler.is_playing():  # 假设audio_handler有is_playing方法
+                        time.sleep(0.1)
+                    
+                    # 播放当前音频
+                    self.audio_handler.play_japanese_audio(ja_text)
 
                 logger.logger.debug(f"成功显示消息：{display_text}")
                     

@@ -26,6 +26,19 @@ class AudioHandler:
             except Exception as e:
                 logger.logger.error(f"音频混合器初始化失败: {str(e)}")
     
+    def is_playing(self):
+        """检查当前是否有音频正在播放"""
+        if not self._initialized:
+            return False
+        
+        with self.lock:
+            try:
+                # 检查是否有活动的音频通道
+                return mixer.get_busy()
+            except Exception as e:
+                logger.logger.error(f"检查播放状态失败: {str(e)}")
+                return False
+    
     def play_japanese_audio(self, text):
         logger.logger.info(f"音频生成请求: {text}")
 
@@ -40,7 +53,7 @@ class AudioHandler:
                 temp_file = os.path.join(temp_dir, f"deepseek_audio_{os.getpid()}_{threading.get_ident()}.wav")
                 
                 logger.logger.debug(f"请求音频生成服务：{text}")
-                url = f"http://127.0.0.1:23456/voice/vits?id=4&length=1.1&text={requests.utils.quote(text)}"
+                url = f"http://127.0.0.1:23456/voice/vits?id=4&length=1.2&text={requests.utils.quote(text)}"
                 response = requests.get(url, timeout=10)
                 
                 if response.status_code == 200:
