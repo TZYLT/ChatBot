@@ -36,7 +36,7 @@ class aihandler:
         
         with open('history.json', 'w', encoding='utf-8') as f:
             json.dump(to_save, f, ensure_ascii=False, indent=4)
-        logger.logger.debug("历史记录已保存（不包含初始系统提示词）")
+        logger.logger.debug("历史记录已保存")
 
     def _load_history(self) -> List[Dict]:
         """加载历史记录并动态合并最新系统提示词"""
@@ -62,7 +62,6 @@ class aihandler:
         except (FileNotFoundError, json.JSONDecodeError):
             logger.logger.warning("历史记录文件不存在或格式错误，创建新历史记录")
             return [{"role": "system", "content": config["system_prompt"]}]
-
     
     def _call_api(self, messages: List[Dict]) -> str:
         """调用DeepSeek API"""
@@ -117,18 +116,7 @@ class aihandler:
                     "return_method": cmd["return_method"]
                 })
         return valid_commands
-    
-    def cmd_executor(self, cmd: Dict):
-        """命令执行器"""
-        logger.logger.debug(f"开始执行命令：{cmd}")
-        if cmd["cmd"] == "cmd_processor":
-            # 处理命令
-            logger.logger.debug(f"AI请求执行cmd命令")
-            CmdExecutor.run_command_with_approval(cmd["para"])
-        else:
-            print(f"未知命令：{cmd}")
-            logger.logger.warning(f"未知命令：{cmd}")
-    
+     
     def set_max_context(self, max_context: int):
         """设置最大上下文长度并保存到config.json"""
         try:
@@ -183,26 +171,9 @@ class aihandler:
                     'system_prompt': ''
                 }, f, ensure_ascii=False, indent=4)
             logger.logger.warning(f"配置文件不存在或格式错误，已创建新配置文件，温度已设置为{temperature}")
-            
-    
+               
     def get_temperature(self):
         return self._get_config().get("temperature", 0.5)
-    
-    def _handle_commands(self, commands: List[Dict]) -> List[Dict]:
-        """处理命令并返回需要展示的内容"""
-        logger.logger.debug(f"开始处理来自AI请求的命令：{commands}")
-        user_messages = []
-        for cmd in commands:
-            if cmd["cmd"] == "talk_to_user":
-                # 确保para是双语字典列表
-                if isinstance(cmd["para"], list):
-                    for item in cmd["para"]:
-                        if isinstance(item, dict) and "zh" in item and "ja" in item:
-                            user_messages.append(item)
-            else:
-                self.cmd_executor(cmd)
-        logger.logger.info(f"来自AI请求的命令已处理完成")
-        return user_messages
     
     def _common_process(self, user_input: str, is_auto: bool = False) -> List[Dict]:
         """通用处理流程"""
@@ -219,12 +190,11 @@ class aihandler:
         
         # 处理响应内容
         commands = self._process_response(response_content)
-        user_messages = self._handle_commands(commands)
         
         # 将AI响应添加到历史
         self._save_history([{"role": "assistant", "content": response_content}])
         
-        return user_messages
+        return commands
     
     def auto_message(self, message: str) -> List[Dict]:
         """自动触发消息处理"""

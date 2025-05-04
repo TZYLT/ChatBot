@@ -1,9 +1,14 @@
 import threading
 import time
 import json
+
+from setuptools import Command
 from AIHandler import aihandler
 import tkinter as tk
 import logger
+
+from typing import List, Dict
+import tools.CmdExecutor
 
 class ChatCore:
     def __init__(self, audio_handler):
@@ -52,7 +57,9 @@ class ChatCore:
         logger.logger.info(f"处理用户消息请求：{message}")
         self.set_busy_state(True)
         try:
-            responses = self.ai.user_message(message)
+            commands = self.ai.user_message(message)
+            responses = self._handle_commands(commands)
+
             self.display_ai_responses(responses)
         except Exception as e:
             self.gui.show_error(f"发送消息时出错: {str(e)}")
@@ -77,12 +84,13 @@ class ChatCore:
         """处理自动消息"""
         logger.logger.debug("触发自动消息请求")
         if self.lock.locked():
-            logger.logger.info("消息线程正在运行，自动消息请求跳过")
+            logger.logger.info("消息线程正在运行，自动消息请求已跳过")
             return
             
         self.set_busy_state(True)
         try:
-            responses = self.ai.auto_message()
+            commands = self.ai.auto_message("")
+            responses = self._handle_commands(commands)
             if responses:
                 self.gui.add_message("系统", "自动消息:", is_user=False)
                 self.display_ai_responses(responses)
@@ -166,6 +174,32 @@ class ChatCore:
         except ValueError as e:
             self.gui.show_error(str(e))
             logger.logger.error(f"用户输入的温度值不是有效的浮点数: {str(e)}")
+
+    def _handle_commands(self, commands: List[Dict]) -> List[Dict]:
+        """处理命令并返回需要展示的内容"""
+        logger.logger.debug(f"开始处理来自AI请求的命令：{commands}")
+        user_messages = []
+        for cmd in commands:
+            if cmd["cmd"] == "talk_to_user":
+                # 确保para是双语字典列表
+                if isinstance(cmd["para"], list):
+                    for item in cmd["para"]:
+                        if isinstance(item, dict) and "zh" in item and "ja" in item:
+                            user_messages.append(item)
+            else:
+                self.cmd_executor(cmd)
+        logger.logger.info(f"来自AI请求的命令已处理完成")
+        return user_messages
+    
+    def cmd_executor(self, cmd: Dict):
+        """命令执行器"""
+        logger.logger.info(f"开始执行命令：{cmd}")
+        if cmd["cmd"] == "cmd_processor":
+            # 处理命令
+            logger.logger.debug(f"AI请求执行cmd命令")
+            tools.CmdExecutor.run_command_with_approval(cmd["para"])
+        else:
+            logger.logger.warning(f"未知命令：{cmd}")
     
     def set_busy_state(self, busy):
         """设置忙碌状态"""
