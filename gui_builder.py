@@ -1,6 +1,9 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import logger
+import os
+import json
+from datetime import datetime
 
 class ChatGUI:
     def __init__(self, root, message_handler):
@@ -10,6 +13,12 @@ class ChatGUI:
         self.setup_ui()
         # 延迟绑定事件，确保message_handler已设置
         self.setup_event_bindings()
+        self.history_file = "chat_history.json"
+        # 确保历史文件存在
+        if not os.path.exists(self.history_file):
+            logger.logger.info("对话历史文件不存在，重新创建对话历史文件")
+            with open(self.history_file, 'w') as f:
+                json.dump([], f)
         logger.logger.info("GUI界面初始化完成")
     
     def setup_event_bindings(self):
@@ -122,7 +131,7 @@ class ChatGUI:
         self.status_bar = tk.Label(self.root, textvariable=self.status_var, bd=1, relief=tk.SUNKEN, anchor=tk.W)
         self.status_bar.pack(fill=tk.X, padx=10, pady=(0, 5))
     
-    def add_message(self, sender, message, is_user=False):
+    def add_message(self, sender, message, is_user=False, save_to_history=True):
         """添加一条消息到聊天显示区域"""
         self.chat_text.config(state=tk.NORMAL)
         tag_name = "user_message" if is_user else "ai_message"
@@ -130,6 +139,52 @@ class ChatGUI:
         self.chat_text.insert(tk.END, f"{message}\n\n", tag_name)
         self.chat_text.config(state=tk.DISABLED)
         self.chat_text.see(tk.END)
+        
+        if save_to_history:
+            self._save_to_history(sender, message, is_user)
+
+    def _save_to_history(self, sender, message, is_user):
+        """将消息保存到历史记录文件中"""
+        try:
+            with open(self.history_file, 'r') as f:
+                history = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            history = []
+        
+        new_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "sender": sender,
+            "message": message,
+            "is_user": is_user
+        }
+        
+        history.append(new_entry)
+        
+        with open(self.history_file, 'w') as f:
+            json.dump(history, f, indent=2)
+
+    def load_history(self):
+        """加载并显示所有历史消息"""
+        # 先清空当前聊天显示
+        self.chat_text.config(state=tk.NORMAL)
+        self.chat_text.delete(1.0, tk.END)
+        self.chat_text.config(state=tk.DISABLED)
+        
+        try:
+            with open(self.history_file, 'r') as f:
+                history = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            history = []
+        
+        # 加载历史记录时不保存到历史文件(避免重复)
+        for entry in history:
+            self.add_message(
+                sender=entry["sender"],
+                message=entry["message"],
+                is_user=entry["is_user"],
+                save_to_history=False
+            )
+        logger.logger.info("历史消息加载完成")
     
     def set_status(self, message):
         """设置状态栏消息"""

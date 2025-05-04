@@ -22,7 +22,7 @@ class aihandler:
                 return json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             logger.logger.warning("配置文件不存在或格式错误，创建新配置文件")
-            return {"apikey": "", "temperature": 0.5, "max_context": 10, "system_prompt": ""}
+            return {"name":"AI 助手","apikey": "", "temperature": 0.5, "max_context": 10, "system_prompt": ""}
     
     def _save_history(self, message: List[Dict]):
         """保存历史记录（不包含第一条系统提示词）"""
@@ -57,7 +57,7 @@ class aihandler:
             keep_from = max(-(max_ctx-1), -len(new_history)+1)  # 确保至少保留系统提示词
             final_history = [new_history[0]] + new_history[keep_from:]
 
-            logger.logger.info(f"历史记录已加载（合并最新系统提示词），保留最新{max_ctx}条")
+            logger.logger.info(f"历史记录已加载，保留最新{max_ctx}条")
             return final_history
         except (FileNotFoundError, json.JSONDecodeError):
             logger.logger.warning("历史记录文件不存在或格式错误，创建新历史记录")
@@ -192,7 +192,9 @@ class aihandler:
         commands = self._process_response(response_content)
         
         # 将AI响应添加到历史
-        self._save_history([{"role": "assistant", "content": response_content}])
+        new_history = [{"role": role, "content": user_input},
+                        {"role": "assistant", "content": response_content}]
+        self._save_history(new_history)
         
         return commands
     
@@ -205,3 +207,8 @@ class aihandler:
         """处理用户输入"""
         logger.logger.info(f"用户请求消息处理：{message}")
         return self._common_process(message, is_auto=False)
+    
+    def cmd_message(self, message: str) -> List[Dict]:
+        """处理命令输入"""
+        logger.logger.info(f"AI请求命令返回信息处理：{message}")
+        return self._common_process(message, is_auto=True)

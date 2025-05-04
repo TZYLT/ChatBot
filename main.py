@@ -14,6 +14,7 @@ def main():
         chat_core = ChatCore(audio_handler)
         gui = ChatGUI(root, chat_core)
         chat_core.set_gui(gui)
+        gui.load_history()
         logger.logger.info("各模块初始化完成")
         
         # 设置关闭事件处理

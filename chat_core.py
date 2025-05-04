@@ -1,14 +1,25 @@
+from enum import auto
+from multiprocessing import process
 import threading
 import time
+import datetime
 import json
-
-from setuptools import Command
-from AIHandler import aihandler
 import tkinter as tk
+from AIHandler import aihandler
+from datetime import datetime
+
+
 import logger
 
 from typing import List, Dict
 import tools.CmdExecutor
+
+user_name = "AI助手"
+
+bot_name = "ChatBot"
+
+auto_msg_time = 15 * 60  # 15分钟
+
 
 class ChatCore:
     def __init__(self, audio_handler):
@@ -19,6 +30,8 @@ class ChatCore:
         self.ai = aihandler()
         self.lock = threading.Lock()
         self.auto_message_running = True
+        self.next_turn_return_msg = []
+        
         logger.logger.info("ChatCore初始化完成")
         
     def set_gui(self, gui):
@@ -48,19 +61,32 @@ class ChatCore:
             return
             
         self.gui.user_input.delete("1.0", tk.END)
-        self.gui.add_message("用户", message, is_user=True)
+        self.gui.add_message(user_name, message, is_user=True)
         
         threading.Thread(target=self.process_user_message, args=(message,), daemon=True).start()
     
+    def message_format(self, message):
+        """格式化消息"""
+        if self.next_turn_return_msg:
+            message = f"[上一次请求命令返回消息：{self.next_turn_return_msg}][用户发送消息：\"{message}\"]"
+            self.next_turn_return_msg = []
+        else:
+            message = f"[无上一次请求命令返回消息][用户发送消息：\"{message}\"]"
+
+        time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        message = f"[{time_str}][{message}]"
+
+        return message
+
     def process_user_message(self, message):
         """处理用户消息"""
         logger.logger.info(f"处理用户消息请求：{message}")
         self.set_busy_state(True)
+        message = self.message_format(message)
+
         try:
             commands = self.ai.user_message(message)
-            responses = self._handle_commands(commands)
-
-            self.display_ai_responses(responses)
+            self.handle_commands(commands)
         except Exception as e:
             self.gui.show_error(f"发送消息时出错: {str(e)}")
             logger.logger.error(f"发送消息时出错: {str(e)}")
@@ -68,11 +94,31 @@ class ChatCore:
             self.set_busy_state(False)
             logger.logger.debug(f"处理用户消息完成")
     
+    def process_cmd_message(self, message : str):
+        """处理命令消息"""
+        if not message:
+            logger.logger.warning("命令消息为空，忽略")
+            return
+        
+        logger.logger.info(f"处理命令消息请求：{message}")
+
+        time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        message = f"[{time_str}][命令返回信息：\"{message}\"]"
+
+        try:
+            commands = self.ai.cmd_message(message)
+            self.handle_commands(commands)
+        except Exception as e:
+            self.gui.show_error(f"发送消息时出错: {str(e)}")
+            logger.logger.error(f"发送消息时出错: {str(e)}")
+        finally:
+            logger.logger.debug(f"处理命令消息完成")
+    
     def start_auto_message_thread(self):
         """启动自动消息线程"""
         def auto_message_loop():
             while self.auto_message_running:
-                time.sleep(15 * 60)  # 15分钟
+                time.sleep(auto_msg_time)
                 if not self.auto_message_running:
                     break
                     
@@ -88,53 +134,54 @@ class ChatCore:
             return
             
         self.set_busy_state(True)
+
+        message = ""
+        message = self.message_format(message)
+
         try:
-            commands = self.ai.auto_message("")
-            responses = self._handle_commands(commands)
-            if responses:
-                self.gui.add_message("系统", "自动消息:", is_user=False)
-                self.display_ai_responses(responses)
+            commands = self.ai.auto_message(message)
+            self.handle_commands(commands)
+            self.gui.add_message("系统", "自动消息:", is_user=False)
         except Exception as e:
             self.gui.show_error(f"自动消息时出错: {str(e)}")
             logger.logger.error(f"自动消息时出错: {str(e)}")
         finally:
             self.set_busy_state(False)
-            logger.logger.debug("自动消息处理完成")
+            logger.logger.info("自动消息处理完成")
     
-    def display_ai_responses(self, responses):
+    def display_ai_response(self, response):
         """显示AI响应并按顺序播放音频"""
-        for response in responses:
-            try:
-                if isinstance(response, str):
-                    response_data = json.loads(response)
-                else:
-                    response_data = response
+        try:
+            if isinstance(response, str):
+                response_data = json.loads(response)
+            else:
+                response_data = response
+            
+            zh_text = response_data.get("zh", "")
+            ja_text = response_data.get("ja", "")
+            
+            display_text = zh_text
+            if self.gui.show_bilingual.get() and ja_text:
+                display_text = f"{zh_text}\n\n{ja_text}"
+            
+            self.gui.add_message(bot_name, display_text, is_user=False)
+            
+            if self.gui.generate_audio.get() and ja_text:
+                # 等待当前音频播放完成
+                while self.audio_handler.is_playing():
+                    time.sleep(0.2)
                 
-                zh_text = response_data.get("zh", "")
-                ja_text = response_data.get("ja", "")
-                
-                display_text = zh_text
-                if self.gui.show_bilingual.get() and ja_text:
-                    display_text = f"{zh_text}\n\n{ja_text}"
-                
-                self.gui.add_message("AI助手", display_text, is_user=False)
-                
-                if self.gui.generate_audio.get() and ja_text:
-                    # 等待当前音频播放完成
-                    while self.audio_handler.is_playing():  # 假设audio_handler有is_playing方法
-                        time.sleep(0.1)
-                    
-                    # 播放当前音频
-                    self.audio_handler.play_japanese_audio(ja_text)
+                # 播放当前音频
+                self.audio_handler.play_japanese_audio(ja_text)
 
-                logger.logger.debug(f"成功显示消息：{display_text}")
-                    
-            except (json.JSONDecodeError, AttributeError):
-                self.gui.add_message("AI助手", str(response), is_user=False)
-                logger.logger.error(f"显示消息时出错: 响应格式不正确：{response}")
-            except Exception as e:
-                self.gui.show_error(f"显示消息时出错: {str(e)}")
-                logger.logger.error(f"显示消息时出错: {str(e)}")
+            logger.logger.debug(f"成功显示消息：{display_text}")
+                
+        except (json.JSONDecodeError, AttributeError):
+            self.gui.add_message("AI助手", str(response), is_user=False)
+            logger.logger.error(f"显示消息时出错: 响应格式不正确：{response}")
+        except Exception as e:
+            self.gui.show_error(f"显示消息时出错: {str(e)}")
+            logger.logger.error(f"显示消息时出错: {str(e)}")
     
     def set_max_context(self):
         """设置最大上下文长度"""
@@ -175,31 +222,59 @@ class ChatCore:
             self.gui.show_error(str(e))
             logger.logger.error(f"用户输入的温度值不是有效的浮点数: {str(e)}")
 
-    def _handle_commands(self, commands: List[Dict]) -> List[Dict]:
+    def handle_commands(self, commands: List[Dict]) -> None:
         """处理命令并返回需要展示的内容"""
         logger.logger.debug(f"开始处理来自AI请求的命令：{commands}")
-        user_messages = []
+        return_afterall = []
+
         for cmd in commands:
+            if cmd["return_method"] == "immediately":
+                cmd_response = self.cmd_executor(cmd)
+                if cmd_response:
+                    self.process_cmd_message(cmd_response)
+            elif cmd["return_method"] == "afterall":
+                cmd_response = self.cmd_executor(cmd)
+                if cmd_response:
+                    return_afterall.append(cmd_response)
+            elif cmd["return_method"] == "next_turn":
+                cmd_response = self.cmd_executor(cmd)
+                if cmd_response:
+                    self.next_turn_return_msg.append(cmd_response)
+            elif cmd["return_method"] == "none":
+                self.cmd_executor(cmd)
+            else:
+                logger.logger.warning(f"未知的return_method，默认为none：{cmd}")
+                self.cmd_executor(cmd)
+
+        logger.logger.info(f"来自AI请求的命令已处理完成")
+    
+    def cmd_executor(self, cmd: Dict) -> str:
+        """命令执行器"""
+
+        try:
+            logger.logger.info(f"开始执行命令：{cmd}")
             if cmd["cmd"] == "talk_to_user":
-                # 确保para是双语字典列表
+                # AI请求与用户对话
                 if isinstance(cmd["para"], list):
                     for item in cmd["para"]:
                         if isinstance(item, dict) and "zh" in item and "ja" in item:
-                            user_messages.append(item)
+                            self.display_ai_response(item)
+                return ""
+            elif cmd["cmd"] == "cmd_processor":
+                # cmd命令执行器
+                logger.logger.debug(f"AI请求执行cmd命令")
+                return tools.CmdExecutor.run_command_with_approval(cmd["para"])
+            elif cmd["cmd"] == "delay":
+                # 延时
+                time.sleep(cmd["para"])
+                return ""
+
             else:
-                self.cmd_executor(cmd)
-        logger.logger.info(f"来自AI请求的命令已处理完成")
-        return user_messages
-    
-    def cmd_executor(self, cmd: Dict):
-        """命令执行器"""
-        logger.logger.info(f"开始执行命令：{cmd}")
-        if cmd["cmd"] == "cmd_processor":
-            # 处理命令
-            logger.logger.debug(f"AI请求执行cmd命令")
-            tools.CmdExecutor.run_command_with_approval(cmd["para"])
-        else:
-            logger.logger.warning(f"未知命令：{cmd}")
+                logger.logger.warning(f"未知命令：{cmd}")
+                return ""
+        except Exception as e:
+            logger.logger.error(f"命令执行失败：{str(e)}")
+            return ""
     
     def set_busy_state(self, busy):
         """设置忙碌状态"""
@@ -233,3 +308,4 @@ class ChatCore:
         if hasattr(self, 'audio_handler') and self.audio_handler:
             self.audio_handler.cleanup()
         logger.logger.info("安全退出完成")
+
