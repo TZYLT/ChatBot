@@ -161,7 +161,7 @@ class ChatGUI:
         history.append(new_entry)
         
         with open(self.history_file, 'w') as f:
-            json.dump(history, f, indent=2)
+            json.dump(history, f, indent=2, ensure_ascii=False)
 
     def load_history(self):
         """加载并显示所有历史消息"""

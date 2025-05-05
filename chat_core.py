@@ -7,6 +7,7 @@ import json
 import tkinter as tk
 from AIHandler import aihandler
 from datetime import datetime
+from chat_memory.memory_handler import MemoryHandler
 
 
 import logger
@@ -31,6 +32,7 @@ class ChatCore:
         self.lock = threading.Lock()
         self.auto_message_running = True
         self.next_turn_return_msg = []
+        self.memroies = MemoryHandler()
         
         logger.logger.info("ChatCore初始化完成")
         
@@ -250,7 +252,6 @@ class ChatCore:
     
     def cmd_executor(self, cmd: Dict) -> str:
         """命令执行器"""
-
         try:
             logger.logger.info(f"开始执行命令：{cmd}")
             if cmd["cmd"] == "talk_to_user":
@@ -268,7 +269,18 @@ class ChatCore:
                 # 延时
                 time.sleep(cmd["para"])
                 return ""
-
+            elif cmd["cmd"] == "add_memory":
+                # 添加记忆
+                logger.logger.debug(f"AI请求添加记忆：{cmd['para']}")
+                self.memroies.add_memory(**cmd["para"])
+                return ""
+            elif cmd["cmd"] == "read_memories":
+                # 读取记忆
+                logger.logger.debug(f"AI请求读取记忆：{cmd['para']}")
+                cmd["para"]["start_time"] = datetime.strptime(cmd["para"]["start_time"], "%Y-%m-%dT%H:%M:%S")
+                cmd["para"]["end_time"] = datetime.strptime(cmd["para"]["end_time"], "%Y-%m-%dT%H:%M:%S")
+                return_memories = self.memroies.read_memories(**cmd["para"])
+                return f"读取到的记忆：{return_memories}"
             else:
                 logger.logger.warning(f"未知命令：{cmd}")
                 return ""
