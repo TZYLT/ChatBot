@@ -15,7 +15,7 @@ import logger
 from typing import List, Dict
 import tools.CmdExecutor
 
-user_name = "AI助手"
+user_name = "User"
 
 bot_name = "ChatBot"
 

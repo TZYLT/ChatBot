@@ -17,7 +17,7 @@ class ChatGUI:
         # 确保历史文件存在
         if not os.path.exists(self.history_file):
             logger.logger.info("对话历史文件不存在，重新创建对话历史文件")
-            with open(self.history_file, 'w') as f:
+            with open(self.history_file, 'w', encoding='utf-8') as f:
                 json.dump([], f)
         logger.logger.info("GUI界面初始化完成")
     
@@ -31,7 +31,7 @@ class ChatGUI:
 
     def setup_ui(self):
         """设置GUI界面"""
-        self.root.title("DeepSeek Chat")
+        self.root.title("ChatBot")
         self.root.geometry("1000x700")
         
         # 主框架
@@ -146,7 +146,7 @@ class ChatGUI:
     def _save_to_history(self, sender, message, is_user):
         """将消息保存到历史记录文件中"""
         try:
-            with open(self.history_file, 'r') as f:
+            with open(self.history_file, 'r', encoding='utf-8') as f:
                 history = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             history = []
@@ -160,7 +160,7 @@ class ChatGUI:
         
         history.append(new_entry)
         
-        with open(self.history_file, 'w') as f:
+        with open(self.history_file, 'w', encoding='utf-8') as f:
             json.dump(history, f, indent=2, ensure_ascii=False)
 
     def load_history(self):
@@ -171,7 +171,7 @@ class ChatGUI:
         self.chat_text.config(state=tk.DISABLED)
         
         try:
-            with open(self.history_file, 'r') as f:
+            with open(self.history_file, 'r', encoding='utf-8') as f:
                 history = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             history = []
