@@ -7,6 +7,10 @@ from pygame import mixer
 
 import logger
 
+locate_url = "http://127.0.0.1:23456/voice/vits?id=4&length=1.1&text="
+remote_url = ""
+use_remote = False
+
 class AudioHandler:
     def __init__(self):
         logger.logger.debug("初始化音频处理器")
@@ -53,7 +57,12 @@ class AudioHandler:
                 temp_file = os.path.join(temp_dir, f"deepseek_audio_{os.getpid()}_{threading.get_ident()}.wav")
                 
                 logger.logger.debug(f"请求音频生成服务：{text}")
-                url = f"http://127.0.0.1:23456/voice/vits?id=4&length=1.2&text={requests.utils.quote(text)}"
+                
+                if use_remote:
+                    url = remote_url + f"{requests.utils.quote(text)}"
+                else:
+                    url = locate_url + f"{requests.utils.quote(text)}"
+                
                 response = requests.get(url, timeout=10)
                 
                 if response.status_code == 200:
