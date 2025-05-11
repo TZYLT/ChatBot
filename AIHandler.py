@@ -3,7 +3,10 @@ import re
 import openai
 import tools.CmdExecutor as CmdExecutor
 import logger
+from math import sqrt
 from typing import List, Dict
+
+auto_api_usage_economizer = True # 是否开启自动API节约算法
 
 class aihandler:
     def __init__(self):
@@ -22,7 +25,7 @@ class aihandler:
                 return json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             logger.logger.warning("配置文件不存在或格式错误，创建新配置文件")
-            return {"name":"AI 助手","apikey": "", "temperature": 0.5, "max_context": 10, "system_prompt": ""}
+            return {"name":"AI 助手","apikey": "", "temperature": 0.5, "base_max_context": 10, "now_max_context": 10, "system_prompt": ""}
     
     def _save_history(self, message: List[Dict]):
         """保存历史记录（不包含第一条系统提示词）"""
@@ -53,7 +56,7 @@ class aihandler:
             ]
 
             # 截断处理（保留系统提示词和最新对话）
-            max_ctx = config.get("max_context", 10)
+            max_ctx = config.get("now_max_context", 10)
             keep_from = max(-(max_ctx-1), -len(new_history)+1)  # 确保至少保留系统提示词
             final_history = [new_history[0]] + new_history[keep_from:]
 
@@ -117,34 +120,65 @@ class aihandler:
                 })
         return valid_commands
      
-    def set_max_context(self, max_context: int):
-        """设置最大上下文长度并保存到config.json"""
+    def set_base_max_context(self, base_max_context: int):
+        """设置基础最大上下文长度并保存到config.json"""
         try:
             # 读取现有配置
             with open('config.json', 'r', encoding='utf-8') as f:
                 config = json.load(f)
             
             # 更新配置
-            config['max_context'] = max_context
+            config['base_max_context'] = base_max_context
             
             # 写回文件
             with open('config.json', 'w', encoding='utf-8') as f:
                 json.dump(config, f, ensure_ascii=False, indent=4)
             
-            logger.logger.info(f"最大上下文长度已设置为{max_context}，已保存到配置文件")
+            logger.logger.info(f"基础最大上下文长度已设置为{base_max_context}，已保存到配置文件")
         except (FileNotFoundError, json.JSONDecodeError):
             # 如果文件不存在或格式错误，创建新配置
             with open('config.json', 'w', encoding='utf-8') as f:
                 json.dump({
                     'apikey': '',
                     'temperature': 0.5,
-                    'max_context': max_context,
+                    'base_max_context': base_max_context,
+                    'now_max_context': base_max_context,
                     'system_prompt': ''
                 }, f, ensure_ascii=False, indent=4)
-            logger.logger.warning(f"配置文件不存在或格式错误，已创建新配置文件，最大上下文长度已设置为{max_context}")
+            logger.logger.warning(f"配置文件不存在或格式错误，已创建新配置文件，最大上下文长度已设置为{base_max_context}")
     
-    def get_max_context(self):
-        return self._get_config().get("max_context", 10)
+    def get_base_max_context(self):
+        return self._get_config().get("base_max_context", 10)
+    
+    def set_now_max_context(self, now_max_context: int):
+        """设置当前最大上下文长度并保存到config.json"""
+        try:
+            # 读取现有配置
+            with open('config.json', 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            
+            # 更新配置
+            config['now_max_context'] = now_max_context
+            
+            # 写回文件
+            with open('config.json', 'w', encoding='utf-8') as f:
+                json.dump(config, f, ensure_ascii=False, indent=4)
+            
+            logger.logger.info(f"当前最大上下文长度已设置为{now_max_context}，已保存到配置文件")
+        except (FileNotFoundError, json.JSONDecodeError):
+            # 如果文件不存在或格式错误，创建新配置
+            with open('config.json', 'w', encoding='utf-8') as f:
+                json.dump({
+                    'apikey': '',
+                    'temperature': 0.5,
+                    'base_max_context': now_max_context,
+                    'now_max_context': now_max_context,
+                    'system_prompt': ''
+                }, f, ensure_ascii=False, indent=4)
+            logger.logger.warning(f"配置文件不存在或格式错误，已创建新配置文件，最大上下文长度已设置为{now_max_context}")
+    
+    def get_now_max_context(self):
+        return self._get_config().get("now_max_context", 10)
     
     def set_temperature(self, temperature: float):
         """设置温度参数并保存到config.json"""
@@ -167,13 +201,28 @@ class aihandler:
                 json.dump({
                     'apikey': '',
                     'temperature': temperature,
-                    'max_context': 10,
+                    'base_max_context': 10,
+                    'now_max_context': 10,
                     'system_prompt': ''
                 }, f, ensure_ascii=False, indent=4)
             logger.logger.warning(f"配置文件不存在或格式错误，已创建新配置文件，温度已设置为{temperature}")
                
     def get_temperature(self):
         return self._get_config().get("temperature", 0.5)
+    
+    def update_max_context(self, add_context_length: int):
+        """自动更新最大上下文长度以节省API成本"""
+        now_max_context = self.get_now_max_context()
+        base_max_context = self.get_base_max_context()
+        
+        max_context_limit = base_max_context + 2 * int(sqrt(3 * base_max_context + 2) -1)
+        
+        if now_max_context < max_context_limit:
+            now_max_context += add_context_length
+        else:
+            now_max_context = base_max_context
+        self.set_now_max_context(now_max_context)
+        logger.logger.info(f"最大上下文长度已自动更新为{now_max_context}")
     
     def _common_process(self, user_input: str, is_auto: bool = False) -> List[Dict]:
         """通用处理流程"""
@@ -184,6 +233,10 @@ class aihandler:
         # 添加用户消息到历史
         role = "system" if is_auto else "user"
         history.append({"role": role, "content": user_input})
+        
+        # 自动节约API调用
+        if auto_api_usage_economizer:
+            self.update_max_context(2)
         
         # 调用API
         response_content = self._call_api(history)

@@ -41,7 +41,7 @@ class ChatCore:
         logger.logger.debug("注入GUI")
         self.gui = gui
         # 初始化GUI变量
-        self.gui.max_context_var.set(str(self.ai.get_max_context()))
+        self.gui.max_context_var.set(str(self.ai.get_now_max_context()))
         self.gui.temperature_var.set(str(self.ai.get_temperature()))
         logger.logger.info("GUI注入完成")
 
@@ -87,6 +87,7 @@ class ChatCore:
         message = self.message_format(message)
 
         try:
+            self.gui.max_context_var.set(str(self.ai.get_now_max_context()))
             commands = self.ai.user_message(message)
             self.handle_commands(commands)
         except Exception as e:
@@ -108,6 +109,7 @@ class ChatCore:
         message = f"[{time_str}][命令返回信息：\"{message}\"]"
 
         try:
+            self.gui.max_context_var.set(str(self.ai.get_now_max_context()))
             commands = self.ai.cmd_message(message)
             self.handle_commands(commands)
         except Exception as e:
@@ -191,7 +193,8 @@ class ChatCore:
             max_context = int(self.gui.max_context_var.get())
             self.set_busy_state(True)
             try:
-                self.ai.set_max_context(max_context)
+                self.ai.set_now_max_context(max_context)
+                self.ai.set_base_max_context(max_context)
                 self.gui.show_info("最大上下文长度已更新")
                 logger.logger.info(f"最大上下文长度已更新：{max_context}")
             except Exception as e:
