@@ -284,7 +284,13 @@ class ChatCore:
                 cmd["para"]["end_time"] = datetime.strptime(cmd["para"]["end_time"], "%Y-%m-%dT%H:%M:%S")
                 return_memories = self.memroies.read_memories(**cmd["para"])
                 return f"读取到的记忆：{return_memories}"
+            elif cmd["cmd"] == "instant_memory":
+                # 设置短期记忆
+                logger.logger.debug(f"AI请求设置即时记忆：{cmd['para']}")
+                self.ai.set_instant_memory(cmd["para"])
+                return ""
             else:
+                # 未知命令
                 logger.logger.warning(f"未知命令：{cmd}")
                 return ""
         except Exception as e:

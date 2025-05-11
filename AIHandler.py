@@ -25,7 +25,14 @@ class aihandler:
                 return json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             logger.logger.warning("配置文件不存在或格式错误，创建新配置文件")
-            return {"name":"AI 助手","apikey": "", "temperature": 0.5, "base_max_context": 10, "now_max_context": 10, "system_prompt": ""}
+            return {"name":"AI 助手",
+                    "apikey": "", 
+                    "temperature": 0.5, 
+                    "base_max_context": 10, 
+                    "now_max_context": 10, 
+                    "system_prompt": "",
+                    "instant_memory": ""
+                    }
     
     def _save_history(self, message: List[Dict]):
         """保存历史记录（不包含第一条系统提示词）"""
@@ -52,6 +59,7 @@ class aihandler:
             # 创建新历史记录结构
             new_history = [
                 {"role": "system", "content": config["system_prompt"]},  # 最新系统提示词
+                {"role": "system", "content": f"[保存的即时记忆]{config["instant_memory"]}"},  # 短期记忆
                 *saved_dialog  # 保存的完整对话记录
             ]
 
@@ -143,7 +151,8 @@ class aihandler:
                     'temperature': 0.5,
                     'base_max_context': base_max_context,
                     'now_max_context': base_max_context,
-                    'system_prompt': ''
+                    'system_prompt': '',
+                    'instant_memory': ''
                 }, f, ensure_ascii=False, indent=4)
             logger.logger.warning(f"配置文件不存在或格式错误，已创建新配置文件，最大上下文长度已设置为{base_max_context}")
     
@@ -173,7 +182,8 @@ class aihandler:
                     'temperature': 0.5,
                     'base_max_context': now_max_context,
                     'now_max_context': now_max_context,
-                    'system_prompt': ''
+                    'system_prompt': '',
+                    'instant_memory': ''
                 }, f, ensure_ascii=False, indent=4)
             logger.logger.warning(f"配置文件不存在或格式错误，已创建新配置文件，最大上下文长度已设置为{now_max_context}")
     
@@ -203,12 +213,44 @@ class aihandler:
                     'temperature': temperature,
                     'base_max_context': 10,
                     'now_max_context': 10,
-                    'system_prompt': ''
+                    'system_prompt': '',
+                    'instant_memory': ''
                 }, f, ensure_ascii=False, indent=4)
             logger.logger.warning(f"配置文件不存在或格式错误，已创建新配置文件，温度已设置为{temperature}")
                
     def get_temperature(self):
         return self._get_config().get("temperature", 0.5)
+    
+    def set_instant_memory(self, instant_memory: str):
+        """设置短时记忆模式到config.json"""
+        try:
+            # 读取现有配置
+            with open('config.json', 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            
+            # 更新配置
+            config['instant_memory'] = instant_memory
+            
+            # 写回文件
+            with open('config.json', 'w', encoding='utf-8') as f:
+                json.dump(config, f, ensure_ascii=False, indent=4)
+
+            logger.logger.info(f"即时记忆已更新为{instant_memory}，已保存到配置文件")
+        except (FileNotFoundError, json.JSONDecodeError):
+            # 如果文件不存在或格式错误，创建新配置
+            with open('config.json', 'w', encoding='utf-8') as f:
+                json.dump({
+                    'apikey': '',
+                    'temperature': 0.5,
+                    'base_max_context': 10,
+                    'now_max_context': 10,
+                    'system_prompt': '',
+                    'instant_memory': instant_memory
+                }, f, ensure_ascii=False, indent=4)
+            logger.logger.warning(f"配置文件不存在或格式错误，已创建新配置文件，即时记忆已设置为{instant_memory}")
+               
+    def get_instant_memory(self):
+        return self._get_config().get("instant_memory", "无")
     
     def update_max_context(self, add_context_length: int):
         """自动更新最大上下文长度以节省API成本"""
