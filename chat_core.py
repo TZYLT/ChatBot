@@ -250,6 +250,9 @@ class ChatCore:
             else:
                 logger.logger.warning(f"未知的return_method，默认为none：{cmd}")
                 self.cmd_executor(cmd)
+                
+        if return_afterall:
+            self.process_cmd_message(f'{return_afterall}')
 
         logger.logger.info(f"来自AI请求的命令已处理完成")
     
