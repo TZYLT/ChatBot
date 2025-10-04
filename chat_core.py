@@ -14,15 +14,10 @@ import logger
 
 from typing import List, Dict
 import tools.CmdExecutor
-import tools.QQChater
 
 user_name = "User"
 
 bot_name = "ChatBot"
-
-group_id = 0
-
-user_id = 0
 
 auto_msg_time = 15 * 60  # 15分钟
 
@@ -38,7 +33,6 @@ class ChatCore:
         self.auto_message_running = True
         self.next_turn_return_msg = []
         self.memroies = MemoryHandler()
-        self.qq_chatter = tools.QQChater.QQChater()
         
         logger.logger.info("ChatCore初始化完成")
         
@@ -298,24 +292,6 @@ class ChatCore:
                 logger.logger.debug(f"AI请求设置即时记忆：{cmd['para']}")
                 self.ai.set_instant_memory(cmd["para"])
                 return ""
-            elif cmd["cmd"] == "send_qq_msg":
-                # 发送QQ消息
-                logger.logger.debug(f"AI请求发送QQ消息：{cmd['para']}")
-                if cmd["para"]["to"] == "group":
-                    self.qq_chatter.send_msg_package_to_group(group_id,cmd["para"]["msg"])
-                else :
-                    self.qq_chatter.send_msg_package_to_private(user_id,cmd["para"]["msg"])
-                return ""
-            elif cmd["cmd"] == "get_qq_msg":
-                # 获取QQ消息
-                logger.logger.debug(f"AI请求获取QQ消息：{cmd['para']}")
-                msg = None
-                if cmd["para"]["from"] == "group":
-                    msg = self.qq_chatter.get_group_msg_history(group_id,cmd["para"]["cnt"])
-                else :
-                    msg = self.qq_chatter.get_friend_msg_history(user_id,cmd["para"]["cnt"])
-                msg = self.qq_chatter.format_message(msg)
-                return msg
             else:
                 # 未知命令
                 logger.logger.warning(f"未知命令：{cmd}")
