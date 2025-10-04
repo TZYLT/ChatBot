@@ -8,7 +8,7 @@ import tkinter as tk
 from AIHandler import aihandler
 from datetime import datetime
 from chat_memory.memory_handler import MemoryHandler
-
+from ToolsHandler import ToolInvoker
 
 import logger
 
@@ -16,9 +16,7 @@ from typing import List, Dict
 import tools.CmdExecutor
 
 user_name = "User"
-
 bot_name = "ChatBot"
-
 auto_msg_time = 15 * 60  # 15分钟
 
 
@@ -31,9 +29,7 @@ class ChatCore:
         self.ai = aihandler()
         self.lock = threading.Lock()
         self.auto_message_running = True
-        self.next_turn_return_msg = []
-        self.memroies = MemoryHandler()
-        
+        self.tools_handler = ToolInvoker()  # 工具调用处理器
         logger.logger.info("ChatCore初始化完成")
         
     def set_gui(self, gui):
@@ -67,16 +63,28 @@ class ChatCore:
         
         threading.Thread(target=self.process_user_message, args=(message,), daemon=True).start()
     
+    def get_tool_responses_info(self):
+        """获取工具响应信息"""
+        tool_responses = self.tools_handler.get_responses()
+        if not tool_responses:
+            return "[无工具返回信息]"
+        
+        response_parts = []
+        for resp in tool_responses:
+            status = "已完成" if resp['response'] != "Waiting for responses." else "等待中"
+            response_parts.append(f"[{resp['name']}:{status}]")
+        
+        return "".join(response_parts)
+    
     def message_format(self, message):
-        """格式化消息"""
-        if self.next_turn_return_msg:
-            message = f"[上一次请求命令返回消息：{self.next_turn_return_msg}][用户发送消息：\"{message}\"]"
-            self.next_turn_return_msg = []
-        else:
-            message = f"[无上一次请求命令返回消息][用户发送消息：\"{message}\"]"
-
+        """格式化消息，包含工具返回信息"""
+        tool_info = self.get_tool_responses_info()
         time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        message = f"[{time_str}][{message}]"
+        
+        if message:
+            message = f"[{time_str}]{tool_info}[用户发送消息：\"{message}\"]"
+        else:
+            message = f"[{time_str}]{tool_info}[自动消息触发]"
 
         return message
 
@@ -84,11 +92,13 @@ class ChatCore:
         """处理用户消息"""
         logger.logger.info(f"处理用户消息请求：{message}")
         self.set_busy_state(True)
-        message = self.message_format(message)
+        
+        # 获取工具响应信息并格式化消息
+        formatted_message = self.message_format(message)
 
         try:
             self.gui.max_context_var.set(str(self.ai.get_now_max_context()))
-            commands = self.ai.user_message(message)
+            commands = self.ai.user_message(formatted_message)
             self.handle_commands(commands)
         except Exception as e:
             self.gui.show_error(f"发送消息时出错: {str(e)}")
@@ -96,27 +106,6 @@ class ChatCore:
         finally:
             self.set_busy_state(False)
             logger.logger.debug(f"处理用户消息完成")
-    
-    def process_cmd_message(self, message : str):
-        """处理命令消息"""
-        if not message:
-            logger.logger.warning("命令消息为空，忽略")
-            return
-        
-        logger.logger.info(f"处理命令消息请求：{message}")
-
-        time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        message = f"[{time_str}][命令返回信息：\"{message}\"]"
-
-        try:
-            self.gui.max_context_var.set(str(self.ai.get_now_max_context()))
-            commands = self.ai.cmd_message(message)
-            self.handle_commands(commands)
-        except Exception as e:
-            self.gui.show_error(f"发送消息时出错: {str(e)}")
-            logger.logger.error(f"发送消息时出错: {str(e)}")
-        finally:
-            logger.logger.debug(f"处理命令消息完成")
     
     def start_auto_message_thread(self):
         """启动自动消息线程"""
@@ -139,11 +128,10 @@ class ChatCore:
             
         self.set_busy_state(True)
 
-        message = ""
-        message = self.message_format(message)
-
         try:
-            commands = self.ai.auto_message(message)
+            # 自动消息为空，但会包含工具返回信息
+            formatted_message = self.message_format("")
+            commands = self.ai.auto_message(formatted_message)
             self.handle_commands(commands)
             self.gui.add_message("系统", "自动消息:", is_user=False)
         except Exception as e:
@@ -228,77 +216,51 @@ class ChatCore:
             logger.logger.error(f"用户输入的温度值不是有效的浮点数: {str(e)}")
 
     def handle_commands(self, commands: List[Dict]) -> None:
-        """处理命令并返回需要展示的内容"""
+        """处理命令"""
         logger.logger.debug(f"开始处理来自AI请求的命令：{commands}")
-        return_afterall = []
 
         for cmd in commands:
-            if cmd["return_method"] == "immediately":
-                cmd_response = self.cmd_executor(cmd)
-                if cmd_response:
-                    self.process_cmd_message(cmd_response)
-            elif cmd["return_method"] == "afterall":
-                cmd_response = self.cmd_executor(cmd)
-                if cmd_response:
-                    return_afterall.append(cmd_response)
-            elif cmd["return_method"] == "next_turn":
-                cmd_response = self.cmd_executor(cmd)
-                if cmd_response:
-                    self.next_turn_return_msg.append(cmd_response)
-            elif cmd["return_method"] == "none":
-                self.cmd_executor(cmd)
+            if self.is_system_command(cmd):
+                # 系统级命令立即执行
+                self.execute_system_command(cmd)
             else:
-                logger.logger.warning(f"未知的return_method，默认为none：{cmd}")
-                self.cmd_executor(cmd)
+                # 非系统级命令提交给ToolsHandler并行处理
+                self.tools_handler.add_tasks([cmd])
                 
-        if return_afterall:
-            self.process_cmd_message(f'{return_afterall}')
-
         logger.logger.info(f"来自AI请求的命令已处理完成")
     
-    def cmd_executor(self, cmd: Dict) -> str:
-        """命令执行器"""
+    def is_system_command(self, cmd: Dict) -> bool:
+        """判断是否为系统级命令"""
+        system_commands = {"talk_to_user", "delay", "instant_memory"}
+        return cmd.get("cmd") in system_commands
+    
+    def execute_system_command(self, cmd: Dict):
+        """执行系统级命令"""
         try:
-            logger.logger.info(f"开始执行命令：{cmd}")
-            if cmd["cmd"] == "talk_to_user":
+            logger.logger.info(f"执行系统级命令：{cmd}")
+            cmd_name = cmd["cmd"]
+            
+            if cmd_name == "talk_to_user":
                 # AI请求与用户对话
                 if isinstance(cmd["para"], list):
                     for item in cmd["para"]:
                         if isinstance(item, dict) and "zh" in item and "ja" in item:
                             self.display_ai_response(item)
-                return ""
-            elif cmd["cmd"] == "cmd_processor":
-                # cmd命令执行器
-                logger.logger.debug(f"AI请求执行cmd命令")
-                return tools.CmdExecutor.run_command_with_approval(cmd["para"])
-            elif cmd["cmd"] == "delay":
+            
+            elif cmd_name == "delay":
                 # 延时
                 time.sleep(cmd["para"])
-                return ""
-            elif cmd["cmd"] == "add_memory":
-                # 添加记忆
-                logger.logger.debug(f"AI请求添加记忆：{cmd['para']}")
-                self.memroies.add_memory(**cmd["para"])
-                return ""
-            elif cmd["cmd"] == "read_memories":
-                # 读取记忆
-                logger.logger.debug(f"AI请求读取记忆：{cmd['para']}")
-                cmd["para"]["start_time"] = datetime.strptime(cmd["para"]["start_time"], "%Y-%m-%dT%H:%M:%S")
-                cmd["para"]["end_time"] = datetime.strptime(cmd["para"]["end_time"], "%Y-%m-%dT%H:%M:%S")
-                return_memories = self.memroies.read_memories(**cmd["para"])
-                return f"读取到的记忆：{return_memories}"
-            elif cmd["cmd"] == "instant_memory":
+            
+            elif cmd_name == "instant_memory":
                 # 设置短期记忆
                 logger.logger.debug(f"AI请求设置即时记忆：{cmd['para']}")
                 self.ai.set_instant_memory(cmd["para"])
-                return ""
+            
             else:
-                # 未知命令
-                logger.logger.warning(f"未知命令：{cmd}")
-                return ""
+                logger.logger.warning(f"未知系统命令：{cmd}")
+                
         except Exception as e:
-            logger.logger.error(f"命令执行失败：{str(e)}")
-            return ""
+            logger.logger.error(f"系统命令执行失败：{str(e)}")
     
     def set_busy_state(self, busy):
         """设置忙碌状态"""
@@ -332,4 +294,3 @@ class ChatCore:
         if hasattr(self, 'audio_handler') and self.audio_handler:
             self.audio_handler.cleanup()
         logger.logger.info("安全退出完成")
-
