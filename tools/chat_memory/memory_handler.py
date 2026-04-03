@@ -208,3 +208,39 @@ class MemoryHandler:
         self.config["last_id"] = 0
         self._save_config()
 
+# ===================== register 注册函数 =====================
+def register(invoker):
+    """
+    记忆工具注册：
+    包含 add_memory + read_memory
+    """
+    memoryHandler = MemoryHandler()
+
+    # -------------------- 1. 注册：add_memory --------------------
+    invoker.register_tool(
+        name="add_memory",
+        summary="向数据库写入一条记忆信息，可附加关键词",
+        description="保存内容到记忆库，并传入关键词便于未来搜索",
+        para_desc={
+            "content": "要保存的记忆内容",
+            "keywords": "关键词列表，如 ['工作', '日记']"
+        },
+        warning="关键词必须是列表格式，content 不能为空",
+        func=memoryHandler.add_memory
+    )
+
+    # -------------------- 2. 注册：read_memory --------------------
+    invoker.register_tool(
+        name="read_memory",
+        summary="按条件查询记忆库中的记录",
+        description="可通过内容、关键词、时间范围、数量限制来精确查询记忆",
+        para_desc={
+            "query_str": "要精确匹配的内容（可选）",
+            "keyword_str": "单个关键词字符串（可选）",
+            "start_time": "开始时间 %Y-%m-%dT%H:%M:%S（可选）",
+            "end_time": "结束时间 %Y-%m-%dT%H:%M:%S（可选）",
+            "limit": "返回最大条数，默认10（可选）"
+        },
+        warning="查询不支持模糊搜索，必须输入准确字符串；时间格式必须严格匹配",
+        func=memoryHandler.read_memories
+    )

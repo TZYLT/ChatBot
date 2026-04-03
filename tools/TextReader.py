@@ -1,3 +1,10 @@
+
+
+from logging import warn
+
+
+disable_tool = False  # 禁用此工具
+
 class DocumentProcessor:
     """
     一个用于处理文本文档的类，提供行数统计、内容提取和插入功能。
@@ -95,3 +102,40 @@ class DocumentProcessor:
         except Exception as e:
             print(f"写入文件时出错: {e}")
             return False
+        
+
+def register(invoker):
+    """
+    插件注册入口，将自动被 ToolInvoker 扫描并调用
+    """
+    if disable_tool:
+        return
+    
+    txtreader = DocumentProcessor()
+
+    invoker.register_tool(
+        name="count_text_lines",
+        summary="统计文本文件行数",
+        description="计算并返回指定文本文件的总行数。",
+        para_desc="\"filename\":str - 要统计行数的文件路径。",
+        warning="如果文件不存在或无法读取，将返回-1并打印错误信息。",
+        func=txtreader.count_text_lines
+    )
+
+    invoker.register_tool(
+        name="get_text_lines",
+        summary="获取文本文件指定行范围的内容",
+        description="读取指定文本文件中从begin_line到end_line的内容，并在每一行前附加行号标记。",
+        para_desc="\"filename\": str - 要读取的文件路径；\"begin_line\": int - 起始行号（从1开始）；\"end_line\": int - 结束行号。",
+        warning="如果文件不存在或读取失败，返回空列表。行号范围超出文件实际行数时，只返回存在的行。你可能需要根据需要记忆重要信息的行号。",
+        func=txtreader.get_text_lines
+    )
+
+    invoker.register_tool(
+        name="add_text_line",
+        summary="在文本文件指定行后插入文本",
+        description="在指定文件的第insert_line行后插入字符串数组text，并保存文件。",
+        para_desc="\"filename\": str - 要插入内容的文件路径；\"insert_line\": int - 插入位置的行号（从1开始）；\"text\": list - 要插入的字符串数组，每个元素为一行。",
+        warning="此操作会直接修改原文件，请确保有文件备份或确认操作无误。如果插入位置大于文件行数，将在文件末尾追加内容。",
+        func=txtreader.add_text_line
+    )

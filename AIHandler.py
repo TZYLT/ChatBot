@@ -60,7 +60,7 @@ class aihandler:
             # 创建新历史记录结构
             new_history = [
                 {"role": "system", "content": config["system_prompt"]},  # 最新系统提示词
-                {"role": "system", "content": f"[保存的即时记忆]{config["instant_memory"]}"},  # 短期记忆
+                {"role": "system", "content": f"[保存的即时记忆]{config['instant_memory']}"},  # 短期记忆
                 *saved_dialog  # 保存的完整对话记录
             ]
 
@@ -230,8 +230,8 @@ class aihandler:
             )
             logger.logger.info(f"API调用成功，得到响应结果{response.choices[0].message.content}")
             
-            if response.choices[0].message.reasoning_content:
-                logger.logger.info(f"推理文本结果：{response.choices[0].message.reasoning_content}")
+            if "reasoning_content" in response.choices[0].message:
+                logger.logger.info(f"推理文本结果：{response.choices[0].message.get('reasoning_content', '无推理文本')}")
                 
             logger.logger.info(f"API调用花费：{response.usage.total_tokens} tokens")
             
@@ -241,7 +241,7 @@ class aihandler:
             return f"API Error: {str(e)}"
     
     def _process_response(self, response: str) -> List[Dict]:
-        """新版响应处理流程"""
+        """新版响应处理流程 - 适配新的命令格式"""
         # 步骤1：定位响应标记
         tag_match = self.response_tag_regex.search(response)
         if not tag_match:
@@ -250,7 +250,7 @@ class aihandler:
         # 步骤2：提取并清理JSON内容
         json_str = tag_match.group(1).strip()
         
-        # 处理常见格式问题（示例）：
+        # 处理常见格式问题：
         # 1. 去除末尾的无关字符
         json_str = re.sub(r'[^]]*$', '', json_str)  # 清除最后一个]后的内容
         # 2. 修复未闭合的数组
@@ -266,14 +266,13 @@ class aihandler:
             print(f"JSON解析错误：{str(e)}")
             return []
         
-        # 步骤4：验证命令格式
+        # 步骤4：验证命令格式 - 新的格式只需要cmd和para字段
         valid_commands = []
         for cmd in commands:
-            if isinstance(cmd, dict) and all(key in cmd for key in ("cmd", "para", "return_method")):
+            if isinstance(cmd, dict) and "cmd" in cmd and "para" in cmd:
                 valid_commands.append({
                     "cmd": cmd["cmd"],
-                    "para": cmd["para"],
-                    "return_method": cmd["return_method"]
+                    "para": cmd["para"]
                 })
         return valid_commands
      

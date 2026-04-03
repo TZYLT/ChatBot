@@ -140,3 +140,17 @@ def run_command_with_approval(command: str) -> str:
     else:
         logger.logger.info(f"Approval result: Cancelled")
         return "Command execution cancelled."
+    
+
+def register(invoker):
+    """
+    插件注册入口，将自动被 ToolInvoker 扫描并调用
+    """
+    invoker.register_tool(
+        name="CmdExecutor",
+        summary="执行CMD命令",
+        description="通过cmd执行命令，该操作在执行命令前会要求用户手动确认，因此无需担心安全性。",
+        para_desc="\"command\":str - 传入你想要执行的命令，一个字符串。",
+        warning="你不应该使用可能产生过量输出的命令，例如进行目录树递归操作。",
+        func=run_command_with_approval  # 绑定工具执行函数
+    )

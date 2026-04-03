@@ -1,3 +1,5 @@
+from gc import disable
+
 import requests
 import json
 import time
@@ -8,6 +10,8 @@ from pathlib import Path
 parent_dir = str(Path(__file__).resolve().parent.parent)
 sys.path.append(parent_dir)
 import logger
+
+disable_tool = True
 
 class QQChater:
     def __init__(self, base_url="http://127.0.0.1:3000"):
@@ -298,3 +302,25 @@ class QQChater:
         for message in message_data['messages']:
             formated_message.append(f"{message['card']}({time.strftime("%m_%d %H:%M", time.localtime(message['time']))}):{message['message']}")
         return formated_message
+    
+
+def register(invoker):
+    """
+    插件注册入口，将自动被 ToolInvoker 扫描并调用
+    """
+    if disable_tool:
+        return
+    
+    qqChater = QQChater()
+    
+    pass
+
+    # # 注册命令
+    # invoker.register_tool(
+    #     name="",
+    #     summary="",
+    #     description="",
+    #     para_desc="",
+    #     warning="",
+    #     func=  # 绑定工具执行函数
+    # )

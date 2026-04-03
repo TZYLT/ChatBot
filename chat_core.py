@@ -7,11 +7,9 @@ import json
 from PyQt5.QtCore import Qt
 from AIHandler import aihandler
 from datetime import datetime
-from chat_memory.memory_handler import MemoryHandler
 from ToolsHandler import ToolInvoker
 import logger
 from typing import List, Dict
-import tools.CmdExecutor
 
 user_name = "User"
 bot_name = "ChatBot"
