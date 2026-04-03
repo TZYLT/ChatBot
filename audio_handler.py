@@ -13,7 +13,6 @@ use_remote = False
 
 class AudioHandler:
     def __init__(self):
-        logger.logger.debug("初始化音频处理器")
         self.lock = threading.Lock()
         self._initialized = False
         self.initialize_mixer()
@@ -23,7 +22,6 @@ class AudioHandler:
         """安全初始化音频混合器"""
         if not self._initialized:
             try:
-                logger.logger.debug("初始化音频混合器")
                 mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
                 self._initialized = True
                 logger.logger.info("音频混合器初始化成功")

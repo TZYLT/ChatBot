@@ -17,7 +17,6 @@ auto_msg_time = 15 * 60  # 15分钟
 
 class ChatCore:
     def __init__(self, audio_handler):
-        logger.logger.debug("初始化ChatCore")
         self.gui = None
         self.audio_handler = audio_handler
         self.ai = aihandler()
@@ -27,7 +26,6 @@ class ChatCore:
         logger.logger.info("ChatCore初始化完成")
         
     def set_gui(self, gui):
-        logger.logger.debug("注入GUI")
         self.gui = gui
         self.gui.max_context_var.setText(str(self.ai.get_now_max_context()))
         self.gui.temperature_var.setText(str(self.ai.get_temperature()))
@@ -219,7 +217,6 @@ class ChatCore:
             pass
     
     def cleanup(self):
-        logger.logger.debug("开始安全退出")
         self.auto_message_running = False
         if self.audio_handler:
             self.audio_handler.cleanup()

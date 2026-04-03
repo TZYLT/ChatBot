@@ -20,7 +20,6 @@ class MemoryHandler:
         初始化记忆处理器
         :param config_file: 配置文件路径（相对于当前目录）
         """
-        logger.logger.debug("开始初始化记忆处理器")
         # 获取当前脚本所在目录的绝对路径
         current_dir = os.path.dirname(os.path.abspath(__file__))
         self.config_path = os.path.join(current_dir, config_file)
