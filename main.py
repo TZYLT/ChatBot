@@ -1,37 +1,46 @@
-import tkinter as tk
+import sys
+from PyQt5.QtWidgets import QApplication
 from audio_handler import AudioHandler
-from gui_builder import ChatGUI
+from pyqt_gui import ChatGUI
 from chat_core import ChatCore
 import logger
 
 def main():
-    root = tk.Tk()
+    # 初始化PyQt5应用
+    app = QApplication(sys.argv)
     
     try:
-        # 初始化各模块
+        # 初始化各模块（与原逻辑完全一致）
         logger.logger.debug("开始初始化各模块")
         audio_handler = AudioHandler()
         chat_core = ChatCore(audio_handler)
-        gui = ChatGUI(root, chat_core)
+        # 创建PyQt5 GUI
+        gui = ChatGUI(chat_core)
         chat_core.set_gui(gui)
-        gui.load_history()
         logger.logger.info("各模块初始化完成")
-        
-        # 设置关闭事件处理
-        def on_closing():
+
+        # 显示窗口
+        gui.show()
+
+        # 重写窗口关闭事件（替代原Tk的WM_DELETE_WINDOW）
+        def close_event(event):
             try:
                 chat_core.cleanup()
-            finally:
-                root.destroy() 
                 logger.logger.info("程序正常退出，资源成功释放")
+            finally:
+                event.accept()
         
-        root.protocol("WM_DELETE_WINDOW", on_closing)
+        gui.closeEvent = close_event
 
-        root.mainloop()
+        # 启动PyQt5事件循环
+        sys.exit(app.exec_())
+
     except Exception as e:
         logger.logger.error(f"程序异常退出，发生错误：{str(e)}")
-        audio_handler.cleanup()
-        root.destroy()
+        # 异常时清理音频资源
+        if 'audio_handler' in locals():
+            audio_handler.cleanup()
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
