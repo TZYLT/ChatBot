@@ -39,6 +39,7 @@ venv.bak/
 *~
 .DS_Store
 /.vs
+*.code-workspace
 
 # Jupyter Notebook
 .ipynb_checkpoints
