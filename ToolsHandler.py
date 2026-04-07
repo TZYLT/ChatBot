@@ -22,6 +22,24 @@ class ToolInvoker:
         # 自动扫描并加载 tools 目录下所有插件（递归遍历）
         self._auto_load_plugins(plugin_dir)
 
+        self.register_tool(
+            name="GetToolsList",
+            summary="获取工具列表",
+            description="获取所有可用的工具列表",
+            para_desc="",
+            warning="",
+            func=self.get_tool_list
+        )
+
+        self.register_tool(
+            name="GetToolUsage",
+            summary="获取工具使用说明",
+            description="获取指定工具的详细使用说明",
+            para_desc="\"name\":\"工具名称\"",
+            warning="",
+            func=self.get_tool_usage
+        )
+
     # ===================== 对外开放的注册接口（插件调用） =====================
     def register_tool(
         self,
@@ -34,7 +52,7 @@ class ToolInvoker:
     ):
         """
         插件统一调用此方法注册工具
-        :param name: 工具唯一名称
+        :param name: 工具唯一名称（与任务cmd字段值对应）
         :param summary: 工具简介
         :param description: 工具详细描述
         :param para_desc: 参数描述 {参数名: 说明}
@@ -96,10 +114,18 @@ class ToolInvoker:
         """获取工具完整使用信息（注册时传入的所有元数据）"""
         return self.tool_registry.get(name, {})
 
-    # ===================== 保留原有任务管理逻辑（无修改） =====================
+    # ===================== 修复1：任务校验字段从 name → cmd =====================
     def add_tasks(self, tasks: List[Dict[str, Any]]):
         """添加任务到队列"""
         for task in tasks:
+            # 强制校验任务必须包含 cmd 字段（工具标识），缺失则跳过并打印错误日志
+            if "cmd" not in task:
+                logger.logger.error(f"无效任务：缺少必填字段[cmd]，任务内容：{task}")
+                continue
+            # 兼容 para 字段缺失（默认空字典）
+            if "para" not in task:
+                task["para"] = {}
+                
             task_id = str(uuid.uuid4())
             with self.lock:
                 self.tasks[task_id] = {
@@ -110,16 +136,20 @@ class ToolInvoker:
                 }
             self.task_queue.put({"id": task_id, "task": task})
 
+    # ===================== 修复2：取值字段从 name → cmd =====================
     def get_responses(self) -> List[Dict[str, str]]:
         """获取任务结果（自动清理已完成任务）"""
         results = []
         tasks_to_remove = []
         with self.lock:
             for task_id, task_info in list(self.tasks.items()):
+                # 安全获取工具名：从 task["cmd"] 取值，缺失则显示「未知工具」
+                tool_name = task_info["task"].get("cmd", "未知工具")
+                
                 if task_info["status"] == "completed":
                     if not task_info["returned"]:
                         results.append({
-                            "name": task_info["task"]["name"],
+                            "name": tool_name,
                             "response": task_info["response"]
                         })
                         task_info["returned"] = True
@@ -127,7 +157,7 @@ class ToolInvoker:
                         tasks_to_remove.append(task_id)
                 else:
                     results.append({
-                        "name": task_info["task"]["name"],
+                        "name": tool_name,
                         "response": "Waiting for responses."
                     })
             for task_id in tasks_to_remove:
@@ -147,7 +177,7 @@ class ToolInvoker:
         except Exception as e:
             return f"工具执行错误: {str(e)}"
 
-    # ===================== 保留原有工作线程逻辑（无修改） =====================
+    # ===================== 修复3：工作线程取值从 name → cmd =====================
     def _worker(self):
         """后台工作线程，处理任务队列"""
         while True:
@@ -155,7 +185,8 @@ class ToolInvoker:
                 item = self.task_queue.get(timeout=1)
                 task_id = item["id"]
                 task = item["task"]
-                name = task.get("name")
+                # 核心修改：从 task["cmd"] 获取工具名称
+                name = task.get("cmd")
                 para = task.get("para", {})
 
                 # 更新状态：执行中
