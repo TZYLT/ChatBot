@@ -86,12 +86,32 @@ class aihandler:
     def get_temperature(self):
         return self.config_manager.get("temperature")
 
-    def set_instant_memory(self, instant_memory: str):
-        self.config_manager.set("instant_memory", instant_memory)
-        logger.logger.info(f"即时记忆已更新为{instant_memory}，已保存到配置文件")
+    def get_instant_memory(self) -> str:
+        """
+        获取格式化后的即时记忆字符串
+        格式：每行 [分类名:ID]:内容
+        按分类名升序，同一分类内按 ID 升序排列
+        """
+        self.config_manager.reload()
+        memory_dict = self.config_manager.get("instant_memory")
+        if not isinstance(memory_dict, dict) or not memory_dict:
+            return ""  # 无记忆时返回空字符串
 
-    def get_instant_memory(self):
-        return self.config_manager.get("instant_memory")
+        lines = []
+        # 按分类名排序
+        for cata in sorted(memory_dict.keys()):
+            entries = memory_dict[cata]
+            if not isinstance(entries, list):
+                continue
+            # 按 ID 排序
+            sorted_entries = sorted(entries, key=lambda x: x.get("id", 0))
+            for entry in sorted_entries:
+                mem_id = entry.get("id")
+                content = entry.get("content")
+                if mem_id is None or content is None:
+                    continue
+                lines.append(f"[{cata}:{mem_id}]:{content}")
+        return "\n".join(lines)
 
     # ===================== 业务方法（无修改，仅配置读取替换）=====================
     def update_max_context(self, add_context_length: int):

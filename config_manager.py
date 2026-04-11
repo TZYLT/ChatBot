@@ -12,7 +12,7 @@ class ConfigManager:
         "base_max_context": 10,
         "now_max_context": 10,
         "system_prompt": "",
-        "instant_memory": "",
+        "instant_memory": {},
         "model": 'deepseek_chat'
     }
 
