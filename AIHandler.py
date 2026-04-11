@@ -46,7 +46,6 @@ class aihandler:
 
             new_history = [
                 {"role": "system", "content": config["system_prompt"]},
-                {"role": "system", "content": f"[保存的即时记忆]{config['instant_memory']}"},
                 *saved_dialog
             ]
 
@@ -169,7 +168,7 @@ class aihandler:
         history = self._load_history()
 
         role = "user"
-        history.append({"role": role, "content": user_input})
+        history.append({"role": role, "content": f"{user_input}[MEMORY:{self.get_instant_memory()}]"})
 
         if auto_api_usage_economizer:
             self.update_max_context(2)

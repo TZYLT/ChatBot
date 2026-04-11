@@ -81,8 +81,8 @@ class ChatCore(QObject):
         tool_info = self.get_tool_responses_info()
         time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         if message:
-            return f"[{time_str}]{tool_info}[用户发送消息：\"{message}\"]"
-        return f"[{time_str}]{tool_info}[自动消息触发]"
+            return f"[{time_str}][Tools:{tool_info}][用户发送消息：\"{message}\"]"
+        return f"[{time_str}][Tools:{tool_info}][自动消息触发]"
 
     def process_user_message(self, message):
         logger.logger.info(f"处理用户消息请求：{message}")
