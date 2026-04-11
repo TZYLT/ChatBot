@@ -1,12 +1,9 @@
-from enum import auto
-from multiprocessing import process
 import threading
 import time
-import datetime
 import json
 from PyQt5.QtCore import Qt, QObject, QTimer, pyqtSignal
 from AIHandler import aihandler
-from datetime import datetime
+from datetime import datetime  # 修复：保留一个 datetime 导入
 from ToolsHandler import ToolInvoker
 import logger
 from typing import List, Dict
@@ -213,13 +210,17 @@ class ChatCore(QObject):
         interval = new_interval if new_interval is not None else -1
         self.reset_timer_signal.emit(interval)
 
-    # ---------- 自动消息处理（主线程）----------
+    # ---------- 自动消息处理（修改：主线程仅触发，工作线程处理）----------
     def process_auto_message(self):
-        """自动消息执行逻辑（在主线程中执行）"""
+        """自动消息触发入口（在主线程中执行，仅负责启动线程）"""
         if self.auto_message_executing:
             logger.logger.info("自动消息正在执行，跳过本次触发")
             return
+        # 将耗时逻辑放入子线程执行
+        threading.Thread(target=self._process_auto_message_worker, daemon=True).start()
 
+    def _process_auto_message_worker(self):
+        """自动消息实际处理逻辑（在子线程中执行）"""
         # 获取锁，与用户消息互斥
         if not self.lock.acquire(timeout=1):
             logger.logger.warning("自动消息获取锁超时，稍后重试")
