@@ -168,7 +168,8 @@ class ChatCore(QObject):
             else:
                 logger.logger.warning("待重置的间隔无效，忽略")
         if self.auto_msg_interval > 0:
-            self._start_auto_timer()
+            # 通过信号在主线程重置计时器（仅重置倒计时，不改变间隔）
+            self.reset_auto_message_timer()
         else:
             logger.logger.debug("自动消息间隔为0，不再调度下一次自动消息")
 
@@ -219,14 +220,14 @@ class ChatCore(QObject):
         # 将耗时逻辑放入子线程执行
         threading.Thread(target=self._process_auto_message_worker, daemon=True).start()
 
+
     def _process_auto_message_worker(self):
         """自动消息实际处理逻辑（在子线程中执行）"""
         # 获取锁，与用户消息互斥
         if not self.lock.acquire(timeout=1):
             logger.logger.warning("自动消息获取锁超时，稍后重试")
-            # 重新调度定时器，稍后重试
-            if self.auto_msg_interval > 0:
-                self._start_auto_timer()
+            # 通过信号在主线程重新启动定时器
+            self.reset_auto_message_timer()
             return
 
         self.auto_message_executing = True
