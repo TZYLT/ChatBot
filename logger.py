@@ -10,7 +10,7 @@ def initLogger(name):
     logger.setLevel(logging.DEBUG)
 
     formatter = logging.Formatter(
-        fmt='[%(module)s][%(levelname)s][%(asctime)s]:%(message)s',
+        fmt='[%(asctime)s][%(levelname)s][%(module)s.%(funcName)s:%(lineno)d][%(threadName)-10s]:%(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     
